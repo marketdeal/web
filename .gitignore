@@ -1,0 +1,11 @@
+node_modules
+dist
+dev-dist
+*.local
+.env
+coverage
+.vite
+dist-desktop
+release
+build
+dist-web
