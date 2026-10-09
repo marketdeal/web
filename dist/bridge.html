@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MarketDeal storage bridge</title>
+  </head>
+  <body>
+    <!--
+      Prototype-only storage bridge for the MarketDeal Admin platform.
+
+      There is no backend, so the storefront's data lives in this origin's localStorage. The admin app
+      (a separate origin) embeds this page in a hidden iframe and talks to it over postMessage to read
+      and write the same `marketdeal:*` keys. In production this would simply be an API.
+
+      Protocol (all messages carry `md: 'admin-bridge'`):
+        admin → bridge   { id, op: 'get' | 'set' | 'remove' | 'keys', key?, value? }
+        bridge → admin   { id, ok, value }                      (reply to a request)
+        bridge → admin   { event: 'ready' }                     (once, on load)
+        bridge → admin   { event: 'changed', key }              (another window changed a key)
+    -->
+    <script>
+      (function () {
+        var PREFIX = 'marketdeal:';
+        var TAG = 'admin-bridge';
+        var trusted = null;
+
+        // Prototype: any localhost origin may connect. A real deployment would allow-list the admin origin.
+        function allowed(origin) {
+          return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+        }
+
+        function reply(origin, id, ok, value) {
+          window.parent.postMessage({ md: TAG, id: id, ok: ok, value: value }, origin);
+        }
+
+        window.addEventListener('message', function (e) {
+          var m = e.data;
+          if (!m || m.md !== TAG || !allowed(e.origin)) return;
+          trusted = e.origin;
+          try {
+            if (m.op === 'get') {
+              var raw = window.localStorage.getItem(PREFIX + m.key);
+              reply(e.origin, m.id, true, raw === null ? null : JSON.parse(raw));
+            } else if (m.op === 'set') {
+              window.localStorage.setItem(PREFIX + m.key, JSON.stringify(m.value));
+              reply(e.origin, m.id, true, null);
+            } else if (m.op === 'remove') {
+              window.localStorage.removeItem(PREFIX + m.key);
+              reply(e.origin, m.id, true, null);
+            } else if (m.op === 'keys') {
+              var keys = [];
+              for (var i = 0; i < window.localStorage.length; i++) {
+                var k = window.localStorage.key(i);
+                if (k && k.indexOf(PREFIX) === 0) keys.push(k.slice(PREFIX.length));
+              }
+              reply(e.origin, m.id, true, keys);
+            } else {
+              reply(e.origin, m.id, false, 'unknown op');
+            }
+          } catch (err) {
+            reply(e.origin, m.id, false, String(err));
+          }
+        });
+
+        // Fires when a *different* document on this origin (the storefront tab) changes storage.
+        window.addEventListener('storage', function (e) {
+          if (!trusted || !e.key || e.key.indexOf(PREFIX) !== 0) return;
+          window.parent.postMessage({ md: TAG, event: 'changed', key: e.key.slice(PREFIX.length) }, trusted);
+        });
+
+        window.parent.postMessage({ md: TAG, event: 'ready' }, '*');
+      })();
+    </script>
+  </body>
+</html>
