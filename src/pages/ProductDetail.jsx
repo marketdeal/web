@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Clock, Heart, Lock, MessageCircle, Minus, Plus, RotateCcw, ShoppingCart, Truck, Unlock, XCircle } from 'lucide-react';
+import { Clock, Heart, Lock, MessageCircle, Minus, Plus, RotateCcw, ShieldCheck, Truck, Unlock, XCircle } from 'lucide-react';
 import ChatModal from '../components/ChatModal';
 import { ProductCard } from '../components/cards';
 import { Breadcrumb, EmptyState, EscrowNote, LocationBadge, SectionHead, StarRow, Stars, VerifiedBadge, Visual } from '../components/ui';
@@ -8,13 +8,12 @@ import { categoryById } from '../data/b2c';
 import { reviewsFor } from '../data/reviews';
 import { locate, yearsInOperation } from '../data/directory';
 import { useStore } from '../context/StoreContext';
-import { useToast } from '../context/ToastContext';
 import { unitPriceOf } from '../lib/cart';
 import { discountPct, naira } from '../lib/format';
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const { addToCart, toggleWish, wishlist, hasOrderWith, b2cCatalog, previewProduct } = useStore();
+  const { buyWithEscrow, toggleWish, wishlist, hasOrderWith, b2cCatalog, previewProduct } = useStore();
   // Look up within the retail catalogue only — a wholesale-only id has no `price`/`variants` shape.
   const publicProduct = b2cCatalog.find((p) => p.id === id);
   // Not public yet? Only its owner can preview it, at the same address it'll live at once approved.
@@ -22,7 +21,6 @@ export default function ProductDetail() {
   const product = publicProduct || preview;
   const isPreview = !publicProduct && !!preview;
   const navigate = useNavigate();
-  const toast = useToast();
   const [variant, setVariant] = useState(product?.variants?.options[0].name || null);
   const [qty, setQty] = useState(1);
   const [shot, setShot] = useState(0);
@@ -43,11 +41,6 @@ export default function ProductDetail() {
 
   // The gallery is illustrative — each thumbnail is a different tint of the same placeholder art.
   const shots = [0, 22, -18, 40].map((shift) => product.hue + shift);
-
-  const add = () => {
-    addToCart(product.id, qty, variant);
-    toast(`Added ${qty} × “${product.name}” to your cart`);
-  };
 
   return (
     <div className="container">
@@ -108,7 +101,7 @@ export default function ProductDetail() {
               <span>{qty}</span>
               <button onClick={() => setQty((q) => Math.min(10, q + 1))} aria-label="Increase"><Plus size={16} /></button>
             </div>
-            <button className="btn btn-primary btn-lg grow" onClick={add} disabled={isPreview}><ShoppingCart size={18} /> Add to cart</button>
+            <button className="btn btn-primary btn-lg grow" onClick={() => setChatOpen(true)} disabled={isPreview}><MessageCircle size={18} /> Message seller to buy</button>
             <button className={`btn btn-outline btn-lg btn-icon ${wished ? 'on' : ''}`} onClick={() => toggleWish(product.id)} aria-label="Wishlist">
               <Heart size={18} fill={wished ? 'currentColor' : 'none'} />
             </button>
@@ -117,21 +110,22 @@ export default function ProductDetail() {
             className="btn btn-dark btn-lg block"
             disabled={isPreview}
             onClick={() => {
-              addToCart(product.id, qty, variant);
+              buyWithEscrow(product.id, qty, variant);
               navigate('/checkout');
             }}
           >
-            Buy now
+            <ShieldCheck size={18} /> Pay with escrow
           </button>
           {isPreview && <p className="muted small center">Buying opens up once an admin approves this listing.</p>}
 
           <EscrowNote>
-            <b>Escrow-protected.</b> Your payment is held by MarketDeal and only released to {loc.shop.name} after you confirm delivery.
+            <b>You buy directly from {loc.shop.name}.</b> Chat to agree on price and delivery — the seller handles dispatch. To stay protected,
+            pay with escrow: MarketDeal holds your money and only releases it to the seller after you confirm delivery.
           </EscrowNote>
 
           <ul className="perks">
-            <li><Truck size={16} /> Delivery in 1–3 days within Lagos, 3–5 days nationwide</li>
-            <li><RotateCcw size={16} /> Report a problem within 72 hours of delivery</li>
+            <li><Truck size={16} /> Delivery arranged directly with the seller</li>
+            <li><RotateCcw size={16} /> Paid with escrow? Report a problem within 72 hours of delivery</li>
           </ul>
         </div>
 
@@ -156,7 +150,7 @@ export default function ProductDetail() {
         </aside>
       </div>
 
-      {chatOpen && <ChatModal shop={loc.shop} product={product} onClose={() => setChatOpen(false)} />}
+      {chatOpen && <ChatModal shop={loc.shop} product={product} variant={variant} qty={qty} onClose={() => setChatOpen(false)} />}
 
       {product.description && (
         <section className="pdp-description">

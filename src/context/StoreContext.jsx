@@ -92,6 +92,12 @@ export function StoreProvider({ children }) {
   );
   const removeFromCart = useCallback((key) => setCart((prev) => prev.filter((l) => l.key !== key)), [setCart]);
   const cartCount = useMemo(() => cart.reduce((n, l) => n + l.qty, 0), [cart]);
+  // Shop buyers no longer keep a cart — they deal with the seller directly. When they choose to pay
+  // through escrow, checkout is loaded with just that one item (replacing anything left over).
+  const buyWithEscrow = useCallback(
+    (productId, qty = 1, variant = null) => setCart([{ key: cartKey(productId, variant), productId, variant, qty: Math.min(Math.max(qty, 1), 99) }]),
+    [setCart],
+  );
 
   // ---- wishlist ---------------------------------------------------------------
   const toggleWish = useCallback(
@@ -501,7 +507,7 @@ export function StoreProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      cart, cartCount, addToCart, updateQty, removeFromCart,
+      cart, cartCount, addToCart, updateQty, removeFromCart, buyWithEscrow,
       wishlist, toggleWish,
       orders, placeRetailOrders, advanceOrder, confirmDelivery, extendRelease, raiseDispute, resolveDispute,
       myDealChats, dealUnread, sendDealMessage, markDealRead,
@@ -511,7 +517,7 @@ export function StoreProvider({ children }) {
       marketPosts, createPost, addComment, addReply,
     }),
     [
-      cart, cartCount, addToCart, updateQty, removeFromCart, wishlist, toggleWish,
+      cart, cartCount, addToCart, updateQty, removeFromCart, buyWithEscrow, wishlist, toggleWish,
       orders, placeRetailOrders, advanceOrder, confirmDelivery, extendRelease, raiseDispute, resolveDispute,
       myDealChats, dealUnread, sendDealMessage, markDealRead, hasOrderWith,
       b2cCatalog, b2bCatalog, findProduct, productsOfShop, previewProduct,

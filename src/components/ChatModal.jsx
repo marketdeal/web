@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Lock, MessageCircle, Phone, PhoneCall, Send, Unlock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Lock, MessageCircle, Phone, PhoneCall, Send, ShieldCheck, Unlock } from 'lucide-react';
 import { Modal, Visual } from './ui';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
@@ -20,9 +20,11 @@ const AUTO_REPLIES = [
 /** `product` (optional) is whichever product the chat was opened from — B2C-shaped (has `price`)
  *  or B2B-shaped (has `tiers`) — and is shown as a reference card so both sides know what the
  *  conversation is about, same as opening a chat from a specific listing on a real marketplace. */
-export default function ChatModal({ shop, product, onClose }) {
+export default function ChatModal({ shop, product, variant = null, qty = 1, onClose }) {
   const { user } = useAuth();
-  const { hasOrderWith } = useStore();
+  const { hasOrderWith, buyWithEscrow } = useStore();
+  const navigate = useNavigate();
+  const firstName = user?.name?.split(' ')[0] || 'there';
   const toast = useToast();
   const loc = locate(shop.id);
   const unlocked = hasOrderWith(shop.id);
@@ -34,8 +36,8 @@ export default function ChatModal({ shop, product, onClose }) {
     {
       from: 'shop',
       text: product
-        ? `Hi ${user.name.split(' ')[0]}! Thanks for asking about “${product.name}”. Happy to help with stock, pricing or delivery.`
-        : `Hi ${user.name.split(' ')[0]}! Thanks for visiting ${shop.name}. Ask about stock, pricing or delivery — we usually reply within minutes.`,
+        ? `Hi ${firstName}! Thanks for asking about “${product.name}”. Happy to help with stock, pricing or delivery.`
+        : `Hi ${firstName}! Thanks for visiting ${shop.name}. Ask about stock, pricing or delivery — we usually reply within minutes.`,
     },
   ]);
   const [input, setInput] = useState('');
@@ -57,6 +59,14 @@ export default function ChatModal({ shop, product, onClose }) {
       setMessages((m) => [...m, { from: 'shop', text: AUTO_REPLIES[m.length % AUTO_REPLIES.length] }]);
       setTyping(false);
     }, 1100);
+  };
+
+  // Retail buyers arrange the purchase and delivery with the seller directly — escrow is optional but
+  // strongly advised, so the chat always carries a notice offering it.
+  const payWithEscrow = () => {
+    buyWithEscrow(product.id, qty, variant);
+    onClose();
+    navigate('/checkout');
   };
 
   const requestCall = () => toast(`Call request sent to ${shop.name} — they'll call you back shortly (demo).`, { kind: 'info' });
@@ -105,6 +115,21 @@ export default function ChatModal({ shop, product, onClose }) {
       )}
 
       <div className="chat-thread">
+        {!wholesale && (
+          <div className="bubble from-system chat-escrow-advice" role="note">
+            <b><ShieldCheck size={14} /> Stay protected — pay through escrow</b>
+            <p>
+              You’re dealing with {shop.name} directly: agree on price and delivery here. Before you send money, pay through
+              MarketDeal Escrow — we hold your payment and only release it to the seller after you confirm delivery. Avoid paying
+              into a personal account outside MarketDeal.
+            </p>
+            {product && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={payWithEscrow}>
+                <ShieldCheck size={14} /> Pay with escrow
+              </button>
+            )}
+          </div>
+        )}
         {messages.map((m, i) => (
           <div key={i} className={`bubble from-${m.from === 'buyer' ? 'buyer' : 'merchant'}`}>
             <p>{m.text}</p>

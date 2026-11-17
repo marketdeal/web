@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Flame, Heart, MapPin, Package, ShoppingCart, Trophy } from 'lucide-react';
+import { Eye, Flame, Heart, MapPin, MessageCircle, Package, Trophy } from 'lucide-react';
+import ChatModal from './ChatModal';
 import { Modal, Stars, Visual, VerifiedBadge, LocationBadge } from './ui';
 import { useStore } from '../context/StoreContext';
-import { useToast } from '../context/ToastContext';
 import { locate } from '../data/directory';
 import { categoryById } from '../data/b2c';
 import { unitPriceOf } from '../lib/cart';
@@ -23,21 +23,15 @@ function useBestSellerBadge(product) {
 }
 
 /** B2C product card — regular e-commerce tile, Temu-style: brand, sold count, best-seller ribbon
- *  and a Quick Look preview that adds to cart without leaving the grid. */
+ *  and a Quick Look preview. Buyers deal with the seller directly, so the CTA opens a chat. */
 export function ProductCard({ product }) {
-  const { addToCart, toggleWish, wishlist } = useStore();
-  const toast = useToast();
+  const { toggleWish, wishlist } = useStore();
   const loc = locate(product.shopId);
   const off = discountPct(product.price, product.oldPrice);
   const wished = wishlist.includes(product.id);
-  const hasVariants = !!product.variants;
   const bestSellerIn = useBestSellerBadge(product);
   const [quickLook, setQuickLook] = useState(false);
-
-  const add = () => {
-    addToCart(product.id, 1, null);
-    toast(`Added “${product.name}” to your cart`);
-  };
+  const [chat, setChat] = useState(null); // null = closed, otherwise { variant }
 
   return (
     <article className="pcard">
@@ -70,34 +64,30 @@ export function ProductCard({ product }) {
           <strong>{naira(product.price)}</strong>
           {product.oldPrice && <s>{naira(product.oldPrice)}</s>}
         </div>
-        {hasVariants ? (
-          <Link to={`/product/${product.id}`} className="btn btn-outline btn-sm">Choose options</Link>
-        ) : (
-          <button className="btn btn-primary btn-sm" onClick={add}>
-            <ShoppingCart size={15} /> Add to cart
-          </button>
-        )}
+        <button className="btn btn-primary btn-sm" onClick={() => setChat({ variant: null })}>
+          <MessageCircle size={15} /> Message seller
+        </button>
       </div>
 
-      {quickLook && <QuickLookModal product={product} onClose={() => setQuickLook(false)} />}
+      {quickLook && (
+        <QuickLookModal
+          product={product}
+          onClose={() => setQuickLook(false)}
+          onMessage={(variant) => { setQuickLook(false); setChat({ variant }); }}
+        />
+      )}
+      {chat && <ChatModal shop={loc.shop} product={product} variant={chat.variant} onClose={() => setChat(null)} />}
     </article>
   );
 }
 
-function QuickLookModal({ product, onClose }) {
-  const { addToCart, toggleWish, wishlist } = useStore();
-  const toast = useToast();
+function QuickLookModal({ product, onClose, onMessage }) {
+  const { toggleWish, wishlist } = useStore();
   const [variant, setVariant] = useState(product.variants?.options[0].name || null);
   const price = unitPriceOf(product, variant);
   const oldPrice = product.oldPrice ? product.oldPrice + (price - product.price) : null;
   const off = discountPct(price, oldPrice);
   const wished = wishlist.includes(product.id);
-
-  const add = () => {
-    addToCart(product.id, 1, variant);
-    toast(`Added “${product.name}” to your cart`);
-    onClose();
-  };
 
   return (
     <Modal title="Quick look" onClose={onClose} wide>
@@ -127,7 +117,7 @@ function QuickLookModal({ product, onClose }) {
           )}
 
           <div className="form-actions start">
-            <button className="btn btn-primary btn-lg" onClick={add}><ShoppingCart size={16} /> Add to cart</button>
+            <button className="btn btn-primary btn-lg" onClick={() => onMessage(variant)}><MessageCircle size={16} /> Message seller</button>
             <button className={`btn btn-outline btn-lg btn-icon ${wished ? 'on' : ''}`} onClick={() => toggleWish(product.id)} aria-label="Wishlist">
               <Heart size={18} fill={wished ? 'currentColor' : 'none'} />
             </button>

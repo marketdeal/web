@@ -1,15 +1,18 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, CreditCard, Loader2, Lock, ShieldCheck } from 'lucide-react';
+import { Check, CreditCard, Loader2, Lock, ShieldCheck, Truck } from 'lucide-react';
 import { Breadcrumb, EmptyState, EscrowNote, LocationBadge } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
 import { locate } from '../data/directory';
 import { groupCart, priceGroups } from '../lib/cart';
-import { deliveryOptions, paymentMethods } from '../lib/pricing';
+import { paymentGateways } from '../lib/pricing';
 import { naira } from '../lib/format';
 
-const steps = ['Delivery', 'Payment', 'Confirm'];
+const steps = ['Payment', 'Confirm'];
+
+// Delivery is agreed between buyer and seller in chat — MarketDeal only holds the payment in escrow.
+const DIRECT_DELIVERY = { id: 'direct', label: 'Arranged with the seller', note: 'Agreed directly between you and the seller', fee: 0 };
 
 export default function Checkout() {
   const { user } = useAuth();
@@ -18,42 +21,29 @@ export default function Checkout() {
   const placed = useRef(false);
 
   const [step, setStep] = useState(0);
-  const [address, setAddress] = useState({ name: user.name, phone: user.phone, line: '', city: user.city || 'Lagos' });
-  const [deliveryId, setDeliveryId] = useState('intra');
-  const [payment, setPayment] = useState('card');
-  const [card, setCard] = useState({ number: '4242 4242 4242 4242', expiry: '12/28', cvv: '123' });
-  const [errors, setErrors] = useState({});
+  const [payment, setPayment] = useState('paystack');
+  const gateway = paymentGateways.find((g) => g.id === payment);
   const [processing, setProcessing] = useState(false);
 
-  const delivery = deliveryOptions.find((d) => d.id === deliveryId);
-  const summary = priceGroups(groupCart(cart, b2cCatalog), delivery.fee);
+  const summary = priceGroups(groupCart(cart, b2cCatalog), 0);
 
   if (!summary.groups.length && !placed.current) {
     return (
       <div className="container">
-        <EmptyState emoji="🛒" title="Nothing to check out" text="Add a few products to your cart first." action={<Link to="/shop" className="btn btn-primary">Browse products</Link>} />
+        <EmptyState emoji="🛒" title="Nothing to pay for" text="Open a product and choose “Pay with escrow” to pay a seller securely." action={<Link to="/shop" className="btn btn-primary">Browse products</Link>} />
       </div>
     );
   }
-
-  const validateAddress = () => {
-    const e = {};
-    if (!address.name.trim()) e.name = 'Enter the recipient’s name';
-    if (!address.phone.trim()) e.phone = 'Enter a phone number';
-    if (deliveryId !== 'pickup' && !address.line.trim()) e.line = 'Enter a delivery address';
-    if (!address.city.trim()) e.city = 'Enter a city';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
 
   const pay = () => {
     setProcessing(true);
     setTimeout(() => {
       placed.current = true;
       const orders = placeRetailOrders({
-        address: deliveryId === 'pickup' ? { ...address, line: 'Self-pickup at shop' } : address,
+        // Buyer contact only, so MarketDeal can reach them about the escrow — no delivery address.
+        address: { name: user.name, phone: user.phone },
         payment,
-        delivery,
+        delivery: DIRECT_DELIVERY,
       });
       navigate(orders.length === 1 ? `/orders/${orders[0].id}` : '/orders', { state: { placed: orders.length } });
     }, 1700);
@@ -61,7 +51,7 @@ export default function Checkout() {
 
   return (
     <div className="container">
-      <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Cart', to: '/cart' }, { label: 'Checkout' }]} />
+      <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Shop', to: '/shop' }, { label: 'Checkout' }]} />
       <h1 className="page-title">Checkout</h1>
 
       <ol className="stepper-nav" aria-label="Checkout steps">
@@ -76,44 +66,13 @@ export default function Checkout() {
         <div>
           {step === 0 && (
             <section className="card pad">
-              <h3>Where should we deliver?</h3>
-              <div className="form-grid">
-                <Field label="Full name" error={errors.name}>
-                  <input value={address.name} onChange={(e) => setAddress({ ...address, name: e.target.value })} />
-                </Field>
-                <Field label="Phone number" error={errors.phone}>
-                  <input value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} />
-                </Field>
-                <Field label="City" error={errors.city}>
-                  <input value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
-                </Field>
-                <Field label="Delivery address" error={errors.line} wide>
-                  <input value={address.line} placeholder="House number, street, area" disabled={deliveryId === 'pickup'} onChange={(e) => setAddress({ ...address, line: e.target.value })} />
-                </Field>
-              </div>
-
-              <h3 className="mt">Delivery method</h3>
+              <EscrowNote>
+                <b>Delivery is between you and {summary.groups.length === 1 ? locate(summary.groups[0].shopId).shop.name : 'the seller'}.</b> Agree on
+                delivery in your chat. MarketDeal only holds your payment and releases it once you confirm you’ve received the item.
+              </EscrowNote>
+              <h3 className="mt">Choose a payment gateway</h3>
               <div className="radio-list">
-                {deliveryOptions.map((d) => (
-                  <label key={d.id} className={`radio-card ${deliveryId === d.id ? 'on' : ''}`}>
-                    <input type="radio" name="delivery" checked={deliveryId === d.id} onChange={() => setDeliveryId(d.id)} />
-                    <div><b>{d.label}</b><span className="muted small">{d.note}</span></div>
-                    <strong>{d.fee ? `${naira(d.fee)} / shop` : 'Free'}</strong>
-                  </label>
-                ))}
-              </div>
-              <div className="form-actions">
-                <Link to="/cart" className="btn btn-ghost">Back to cart</Link>
-                <button className="btn btn-primary btn-lg" onClick={() => validateAddress() && setStep(1)}>Continue to payment</button>
-              </div>
-            </section>
-          )}
-
-          {step === 1 && (
-            <section className="card pad">
-              <h3>How would you like to pay?</h3>
-              <div className="radio-list">
-                {paymentMethods.map((m) => (
+                {paymentGateways.map((m) => (
                   <label key={m.id} className={`radio-card ${payment === m.id ? 'on' : ''}`}>
                     <input type="radio" name="payment" checked={payment === m.id} onChange={() => setPayment(m.id)} />
                     <div><b>{m.label}</b><span className="muted small">{m.note}</span></div>
@@ -121,57 +80,38 @@ export default function Checkout() {
                 ))}
               </div>
 
-              {payment === 'card' && (
-                <div className="form-grid mt">
-                  <Field label="Card number" wide>
-                    <input value={card.number} onChange={(e) => setCard({ ...card, number: e.target.value })} inputMode="numeric" />
-                  </Field>
-                  <Field label="Expiry"><input value={card.expiry} onChange={(e) => setCard({ ...card, expiry: e.target.value })} /></Field>
-                  <Field label="CVV"><input value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value })} inputMode="numeric" /></Field>
-                </div>
-              )}
-              {payment !== 'card' && (
-                <p className="callout mt">
-                  {payment === 'transfer' && 'You’ll receive a one-time account number after you confirm the order.'}
-                  {payment === 'ussd' && 'A USSD code will be shown after you confirm. Dial it on your phone to pay.'}
-                  {payment === 'wallet' && 'Your MarketDeal wallet balance will be debited when you confirm.'}
-                </p>
-              )}
-              <p className="muted small mt"><Lock size={13} /> Demo mode — no real payment is taken. In production, payments run through Paystack / Flutterwave.</p>
+              <p className="callout mt">You’ll pick how to pay — card, transfer, USSD and more — on {gateway.label}’s secure checkout after you confirm.</p>
+              <p className="muted small mt"><Lock size={13} /> Demo mode — no real payment is taken.</p>
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => setStep(0)}>Back</button>
-                <button className="btn btn-primary btn-lg" onClick={() => setStep(2)}>Review order</button>
+                <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Back</button>
+                <button className="btn btn-primary btn-lg" onClick={() => setStep(1)}>Review payment</button>
               </div>
             </section>
           )}
 
-          {step === 2 && (
+          {step === 1 && (
             <section className="card pad">
               <h3>Review & confirm</h3>
               <div className="review-cols">
                 <div>
-                  <span className="muted small">Deliver to</span>
-                  <p><b>{address.name}</b><br />{deliveryId === 'pickup' ? 'Self-pickup at each shop' : address.line}, {address.city}<br />{address.phone}</p>
-                </div>
-                <div>
                   <span className="muted small">Delivery</span>
-                  <p><b>{delivery.label}</b><br />{delivery.note}</p>
+                  <p><b>{DIRECT_DELIVERY.label}</b><br />{DIRECT_DELIVERY.note}</p>
                 </div>
                 <div>
                   <span className="muted small">Payment</span>
-                  <p><b>{paymentMethods.find((m) => m.id === payment).label}</b>{payment === 'card' && <><br />•••• {card.number.replace(/\s/g, '').slice(-4)}</>}</p>
+                  <p><b>{gateway.label}</b><br />{gateway.note}</p>
                 </div>
               </div>
 
               <EscrowNote>
-                <b>How escrow works:</b> we hold your ₦{summary.total.toLocaleString('en-NG')} securely. Each merchant is paid only after you
-                confirm delivery (or 72 hours after logistics confirm it). Not right? Raise a dispute and a mediator steps in.
+                <b>How escrow works:</b> we hold your ₦{summary.total.toLocaleString('en-NG')} securely. The seller is paid only after you
+                confirm you’ve received your item. Not right? Raise a dispute and a mediator steps in.
               </EscrowNote>
 
               <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => setStep(1)} disabled={processing}>Back</button>
+                <button className="btn btn-ghost" onClick={() => setStep(0)} disabled={processing}>Back</button>
                 <button className="btn btn-primary btn-lg" onClick={pay} disabled={processing}>
-                  {processing ? <><Loader2 size={18} className="spin" /> Processing payment…</> : <><CreditCard size={18} /> Pay {naira(summary.total)}</>}
+                  {processing ? <><Loader2 size={18} className="spin" /> Opening {gateway.label}…</> : <><CreditCard size={18} /> Pay {naira(summary.total)} with {gateway.label}</>}
                 </button>
               </div>
             </section>
@@ -191,22 +131,12 @@ export default function Checkout() {
           ))}
           <dl className="sum-list">
             <div><dt>Subtotal</dt><dd>{naira(summary.subtotal)}</dd></div>
-            <div><dt>Delivery</dt><dd>{summary.delivery ? naira(summary.delivery) : 'Free'}</dd></div>
             <div><dt><ShieldCheck size={13} /> Escrow fee</dt><dd>{naira(summary.escrow)}</dd></div>
           </dl>
           <div className="sum-total"><span>Total</span><strong>{naira(summary.total)}</strong></div>
+          <p className="muted small mt"><Truck size={13} /> Delivery is arranged directly with the seller and isn’t included here.</p>
         </aside>
       </div>
     </div>
-  );
-}
-
-function Field({ label, error, wide, children }) {
-  return (
-    <label className={`field ${wide ? 'wide' : ''} ${error ? 'has-error' : ''}`}>
-      <span>{label}</span>
-      {children}
-      {error && <em>{error}</em>}
-    </label>
   );
 }

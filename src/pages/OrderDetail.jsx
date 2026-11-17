@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { AlertTriangle, Check, CheckCircle2, FastForward, Package, Phone, Scale, ShieldCheck, Timer, Unlock } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, FastForward, MessageCircle, Package, Phone, Scale, ShieldCheck, Timer, Unlock } from 'lucide-react';
+import ChatModal from '../components/ChatModal';
 import { Breadcrumb, EmptyState, LocationBadge, Modal, StatusChip, Visual } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
@@ -8,6 +9,14 @@ import { useToast } from '../context/ToastContext';
 import { ESCROW, TIMELINE, stepIndex } from '../lib/escrow';
 import { locate } from '../data/directory';
 import { formatDateTime, naira } from '../lib/format';
+
+// Shop orders where delivery is arranged between buyer and seller: no logistics tracking — the buyer
+// releases escrow once they have the item, or raises a dispute if something goes wrong.
+const DIRECT_TIMELINE = [
+  { state: 'FUNDED', label: 'Paid into escrow' },
+  { state: 'RELEASED', label: 'Received & funds released' },
+];
+const DIRECT_FUNDED_TEXT = 'Your payment is held safely by MarketDeal. Call or chat with the seller to arrange delivery, then confirm receipt here once you have your item.';
 
 const disputeReasons = ['Item not received', 'Item not as described', 'Damaged or faulty item', 'Wrong item delivered', 'Counterfeit product'];
 
@@ -20,6 +29,7 @@ export default function OrderDetail() {
   const [disputing, setDisputing] = useState(false);
   const [reason, setReason] = useState(disputeReasons[0]);
   const [details, setDetails] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
 
   const order = orders.find((o) => o.id === id && o.buyerId === user.id);
   if (!order) {
@@ -30,8 +40,12 @@ export default function OrderDetail() {
   const listPath = wholesale ? '/b2b/orders' : '/orders';
   const state = order.escrow.state;
   const st = ESCROW[state];
-  const idx = stepIndex(state);
+  const direct = order.deliveryId === 'direct';
+  const timeline = direct ? DIRECT_TIMELINE : TIMELINE;
+  const idx = direct ? DIRECT_TIMELINE.findIndex((t) => t.state === state) : stepIndex(state);
+  const stateText = direct && state === 'FUNDED' ? DIRECT_FUNDED_TEXT : st.text;
   const loc = locate(order.shopId);
+  const phoneDigits = loc.shop.phone.replace(/\D/g, '');
   const canDispute = ['FUNDED', 'IN_TRANSIT', 'DELIVERED'].includes(state);
   const hoursLeft = order.autoReleaseAt ? Math.max(0, Math.round((order.autoReleaseAt - Date.now()) / 3600000)) : null;
 
@@ -44,7 +58,7 @@ export default function OrderDetail() {
           <CheckCircle2 size={22} />
           <div>
             <b>Order placed — your payment is safely held in escrow.</b>
-            <span>The merchant has been notified and will dispatch your order shortly.</span>
+            <span>{direct ? `Contact ${loc.shop.name} to arrange delivery, then confirm receipt here to release the funds.` : 'The merchant has been notified and will dispatch your order shortly.'}</span>
           </div>
         </div>
       )}
@@ -70,7 +84,7 @@ export default function OrderDetail() {
           <section className="card pad">
             <h3><ShieldCheck size={18} /> Escrow status</h3>
             <ol className="timeline" aria-label="Order progress">
-              {TIMELINE.map((t, i) => (
+              {timeline.map((t, i) => (
                 <li key={t.state} className={idx > i ? 'done' : idx === i ? 'now' : ''}>
                   <span className="dot">{idx > i || (idx === i && state === 'RELEASED') ? <Check size={14} /> : i + 1}</span>
                   <b>{t.label}</b>
@@ -80,7 +94,7 @@ export default function OrderDetail() {
 
             <div className={`state-note tone-${st.tone}`}>
               {state === 'DISPUTED' ? <Scale size={18} /> : <ShieldCheck size={18} />}
-              <p>{st.text}</p>
+              <p>{stateText}</p>
             </div>
 
             {state === 'IN_TRANSIT' && order.tracking && (
@@ -102,15 +116,27 @@ export default function OrderDetail() {
               </div>
             )}
 
+            {direct && state === 'FUNDED' && (
+              <div className="release-box">
+                <div>
+                  <b>Received your item?</b>
+                  <span className="muted small">Only confirm once you have it and it’s as agreed — this pays the seller.</span>
+                </div>
+                <div className="row gap wrap">
+                  <button className="btn btn-primary" onClick={() => { confirmDelivery(order.id); toast('Thanks! Funds released to the seller.'); }}>Confirm receipt & release funds</button>
+                </div>
+              </div>
+            )}
+
             {canDispute && (
-              <button className="btn btn-ghost danger-text" onClick={() => setDisputing(true)}><AlertTriangle size={16} /> Something wrong? Raise a dispute</button>
+              <button className="btn btn-ghost danger-text" onClick={() => setDisputing(true)}><AlertTriangle size={16} /> {direct ? 'Item not delivered or not as agreed? Raise a dispute' : 'Something wrong? Raise a dispute'}</button>
             )}
             {state === 'DISPUTED' && order.dispute && (
               <p className="callout"><b>Your dispute:</b> {order.dispute.reason}. A mediator will contact both parties.</p>
             )}
 
             {/* Prototype-only controls so a presenter can walk the client through the whole lifecycle. */}
-            {['FUNDED', 'IN_TRANSIT', 'DISPUTED'].includes(state) && (
+            {(direct ? state === 'DISPUTED' : ['FUNDED', 'IN_TRANSIT', 'DISPUTED'].includes(state)) && (
               <div className="demo-box">
                 <span className="demo-tag">Prototype controls</span>
                 {state === 'DISPUTED' ? (
@@ -164,7 +190,7 @@ export default function OrderDetail() {
             <h3>Payment summary</h3>
             <dl className="sum-list">
               <div><dt>Subtotal</dt><dd>{naira(order.subtotal)}</dd></div>
-              <div><dt>Delivery</dt><dd>{order.deliveryFee ? naira(order.deliveryFee) : 'Free'}</dd></div>
+              {order.deliveryId !== 'direct' && <div><dt>Delivery</dt><dd>{order.deliveryFee ? naira(order.deliveryFee) : 'Free'}</dd></div>}
               {wholesale && <div><dt>VAT (7.5%)</dt><dd>{naira(order.vat)}</dd></div>}
               <div><dt>Escrow fee</dt><dd>{naira(order.escrowFee)}</dd></div>
             </dl>
@@ -176,13 +202,23 @@ export default function OrderDetail() {
             <Link to={wholesale ? `/b2b/shop/${loc.shop.id}` : `/shop/vendor/${loc.shop.id}`}><b>{loc.shop.name}</b></Link>
             <LocationBadge text={loc.label} />
             <span className="pill pill-green contact-unlock-pill"><Unlock size={12} /> Contact unlocked</span>
-            <a className="muted small phone-link" href={`tel:${loc.shop.phone.replace(/\D/g, '')}`}><Phone size={13} /> {loc.shop.phone}</a>
+            <a className="muted small phone-link" href={`tel:${phoneDigits}`}><Phone size={13} /> {loc.shop.phone}</a>
+            {direct && (
+              <div className="row gap wrap mt">
+                <a className="btn btn-outline btn-sm" href={`tel:${phoneDigits}`}><Phone size={14} /> Call seller</a>
+                <button className="btn btn-primary btn-sm" onClick={() => setChatOpen(true)}><MessageCircle size={14} /> Message seller</button>
+              </div>
+            )}
           </section>
 
           <section className="card pad">
             <h3>Delivery</h3>
             <b>{order.deliveryLabel}</b>
-            <p className="muted">{order.address.name}<br />{order.address.line}, {order.address.city}<br />{order.address.phone}</p>
+            {order.deliveryId === 'direct' ? (
+              <p className="muted">Delivery is agreed directly between you and {loc.shop.name} — there’s no MarketDeal tracking. If the item doesn’t arrive or isn’t as agreed, raise a dispute and your money stays frozen until a mediator decides.</p>
+            ) : (
+              <p className="muted">{order.address.name}<br />{order.address.line}, {order.address.city}<br />{order.address.phone}</p>
+            )}
             {order.deliveryId === 'pickup' && (
               <p className="callout">Pickup code: <b>{order.id.replace('MD-', '')}</b> — show this at the shop.</p>
             )}
@@ -199,6 +235,8 @@ export default function OrderDetail() {
           )}
         </aside>
       </div>
+
+      {chatOpen && <ChatModal shop={loc.shop} onClose={() => setChatOpen(false)} />}
 
       {disputing && (
         <Modal title="Raise a dispute" onClose={() => setDisputing(false)}>

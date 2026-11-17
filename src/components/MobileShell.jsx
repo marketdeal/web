@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Boxes, Download, Grid2x2, Handshake, Heart, Home, LayoutDashboard, LogOut, MessagesSquare, Package, RefreshCw, Share, ShoppingCart, Store, User, WifiOff, X,
+  Boxes, Download, Grid2x2, Handshake, Heart, Home, LayoutDashboard, LogOut, MessagesSquare, Package, RefreshCw, Share, Store, User, WifiOff, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/StoreContext';
@@ -81,7 +81,7 @@ function AccountSheet({ onClose }) {
 export function TabBar() {
   const { pathname } = useLocation();
   const { isVendor, isLoggedIn } = useAuth();
-  const { cartCount, dealUnread } = useStore();
+  const { dealUnread } = useStore();
   const [sheet, setSheet] = useState(false);
 
   useEffect(() => { setSheet(false); }, [pathname]);
@@ -103,7 +103,7 @@ export function TabBar() {
           <>
             <Tab to="/" end icon={Home} label="Home" />
             <Tab to="/shop" icon={Grid2x2} label="Shop" />
-            <Tab to="/cart" icon={ShoppingCart} label="Cart" count={cartCount} />
+            <Tab to="/wishlist" icon={Heart} label="Saved" />
             <Tab to={isLoggedIn ? '/orders' : '/login'} icon={Package} label="Orders" />
             <button className={`tab${sheet ? ' on' : ''}`} onClick={() => setSheet(true)} aria-haspopup="dialog">
               <span className="tab-icon"><User size={22} /></span>

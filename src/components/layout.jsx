@@ -195,14 +195,14 @@ function CategoryNav() {
 }
 
 export function ShopLayout({ children }) {
-  const { cartCount, wishlist } = useStore();
+  const { wishlist } = useStore();
   const { isVendor } = useAuth();
 
   return (
     <div className="app shop-theme">
       <div className="promo-strip">
         <div className="container">
-          <span><ShieldCheck size={14} /> Every order is escrow-protected — you only pay the merchant when you confirm delivery</span>
+          <span><ShieldCheck size={14} /> Buy directly from sellers — pay through MarketDeal escrow so your money is only released when you confirm delivery</span>
           {isVendor ? (
             <Link to="/b2b">Switch to the Wholesale community →</Link>
           ) : (
@@ -219,10 +219,6 @@ export function ShopLayout({ children }) {
             <Link to="/wishlist" className="ha" aria-label="Wishlist">
               <Heart size={20} />
               {wishlist.length > 0 && <i className="count">{wishlist.length}</i>}
-            </Link>
-            <Link to="/cart" className="ha" aria-label="Cart">
-              <ShoppingCart size={20} />
-              {cartCount > 0 && <i className="count">{cartCount}</i>}
             </Link>
             <AccountMenu />
           </div>

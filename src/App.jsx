@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RequireAuth, ShopLayout, VendorGate } from './components/layout';
 import GuideWidget from './components/GuideWidget';
 import { PwaNotices, TabBar } from './components/MobileShell';
@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
-import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
@@ -58,7 +57,7 @@ export default function App() {
           <Route path="shop/plaza/:id" element={<ConsumerPlazaPage />} />
           <Route path="shop/vendor/:id" element={<VendorPage />} />
           <Route path="product/:id" element={<ProductDetail />} />
-          <Route path="cart" element={<Cart />} />
+          <Route path="cart" element={<Navigate to="/shop" replace />} />
           <Route path="wishlist" element={<Wishlist />} />
           <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="orders" element={<RequireAuth><Orders scope="RETAIL" /></RequireAuth>} />

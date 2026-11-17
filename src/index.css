@@ -778,6 +778,9 @@ a.loc-badge:hover { background: #dbe7f5; }
 .bubble.from-buyer .bubble-head span { color: #a9bdd6; }
 .bubble.from-merchant { align-self: flex-start; background: var(--cream); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
 .bubble.from-system { align-self: center; background: var(--green-50); color: var(--green); max-width: 100%; text-align: center; }
+.chat-escrow-advice { background: var(--navy-50); color: var(--navy); text-align: left; align-items: flex-start; gap: 8px; font-size: .88rem; }
+.chat-escrow-advice b { display: flex; align-items: center; gap: 6px; }
+.chat-escrow-advice b svg { color: var(--orange); }
 .bubble.from-system .bubble-head span { color: var(--muted); }
 .bubble strong { font-size: 1.1rem; }
 .bubble.waiting { flex-direction: row; align-items: center; gap: 10px; color: var(--muted); }

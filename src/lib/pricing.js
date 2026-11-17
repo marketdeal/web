@@ -11,11 +11,10 @@ export const deliveryOptions = [
   { id: 'pickup', label: 'Self-pickup at shop', note: 'Get a QR code to collect', fee: 0 },
 ];
 
-export const paymentMethods = [
-  { id: 'card', label: 'Debit / Credit card', note: 'Visa, Mastercard, Verve' },
-  { id: 'transfer', label: 'Bank transfer', note: 'Pay to a one-time account number' },
-  { id: 'ussd', label: 'USSD', note: 'Pay from any phone — no data needed' },
-  { id: 'wallet', label: 'MarketDeal wallet', note: 'Pay from your wallet balance' },
+// Payment gateways — each one offers its own methods (card, transfer, USSD…) on its checkout screen.
+export const paymentGateways = [
+  { id: 'paystack', label: 'Paystack', note: 'Card, bank transfer, USSD, bank account or QR' },
+  { id: 'flutterwave', label: 'Flutterwave', note: 'Card, bank transfer, USSD, mobile money or Barter' },
 ];
 
 /** Price per unit for a quantity, based on the product's tier table. Below MOQ returns the first tier. */
