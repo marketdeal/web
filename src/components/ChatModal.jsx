@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Lock, MessageCircle, Phone, PhoneCall, Send, ShieldCheck, Unlock } from 'lucide-react';
 import { Modal, Visual } from './ui';
 import { useAuth } from '../context/AuthContext';
@@ -20,11 +20,37 @@ const AUTO_REPLIES = [
 /** `product` (optional) is whichever product the chat was opened from — B2C-shaped (has `price`)
  *  or B2B-shaped (has `tiers`) — and is shown as a reference card so both sides know what the
  *  conversation is about, same as opening a chat from a specific listing on a real marketplace. */
-export default function ChatModal({ shop, product, variant = null, qty = 1, onClose }) {
+export default function ChatModal(props) {
+  const { isLoggedIn } = useAuth();
+  // Messaging a seller needs an account — both sides must know who they're dealing with.
+  return isLoggedIn ? <ChatWindow {...props} /> : <SignInToChat shop={props.shop} onClose={props.onClose} />;
+}
+
+function SignInToChat({ shop, onClose }) {
+  const { pathname, search } = useLocation();
+  const next = encodeURIComponent(pathname + search);
+  return (
+    <Modal title={`Chat with ${shop.name}`} onClose={onClose}>
+      <div className="chat-signin">
+        <Lock size={28} />
+        <h3>Sign in to message {shop.name}</h3>
+        <p className="muted">
+          You need a MarketDeal account to chat with sellers. It keeps conversations accountable and lets you pay securely through escrow.
+        </p>
+        <div className="row gap wrap chat-signin-actions">
+          <Link to={`/login?next=${next}`} className="btn btn-primary" onClick={onClose}>Sign in</Link>
+          <Link to="/register" className="btn btn-outline" onClick={onClose}>Create account</Link>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ChatWindow({ shop, product, variant = null, qty = 1, onClose }) {
   const { user } = useAuth();
   const { hasOrderWith, buyWithEscrow } = useStore();
   const navigate = useNavigate();
-  const firstName = user?.name?.split(' ')[0] || 'there';
+  const firstName = user.name.split(' ')[0];
   const toast = useToast();
   const loc = locate(shop.id);
   const unlocked = hasOrderWith(shop.id);

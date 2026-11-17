@@ -781,6 +781,11 @@ a.loc-badge:hover { background: #dbe7f5; }
 .chat-escrow-advice { background: var(--navy-50); color: var(--navy); text-align: left; align-items: flex-start; gap: 8px; font-size: .88rem; }
 .chat-escrow-advice b { display: flex; align-items: center; gap: 6px; }
 .chat-escrow-advice b svg { color: var(--orange); }
+.chat-signin { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 12px 4px 4px; }
+.chat-signin > svg { color: var(--orange); }
+.chat-signin h3 { margin: 0; }
+.chat-signin p { margin: 0; max-width: 360px; }
+.chat-signin-actions { justify-content: center; margin-top: 8px; }
 .bubble.from-system .bubble-head span { color: var(--muted); }
 .bubble strong { font-size: 1.1rem; }
 .bubble.waiting { flex-direction: row; align-items: center; gap: 10px; color: var(--muted); }
