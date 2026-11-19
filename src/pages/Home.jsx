@@ -57,6 +57,28 @@ export default function Home() {
     <>
       <HeroCarousel slides={heroSlides} onAskGuide={openGuide} />
 
+      <section className="market-band">
+        <div className="container">
+          <SectionHead
+            title="Walk into a market"
+            sub="Every product on MarketDeal comes from a real shop in a real market — market, street, plaza, vendor."
+            action={<Link to="/shop/markets" className="link-arrow">See all markets <ArrowRight size={15} /></Link>}
+          />
+          <div className="market-chips">
+            {markets.map((m) => (
+              <Link key={m.id} to={`/shop/market/${m.id}`} className="market-chip" style={{ '--h': m.hue }}>
+                <span className="mc-emoji">{m.emoji}</span>
+                <div>
+                  <b>{m.name}</b>
+                  <small>{m.city}, {m.state}</small>
+                  <em>{m.focus}</em>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="container section">
         <SectionHead title="Shop by category" />
         <div className="cat-grid">
@@ -81,28 +103,6 @@ export default function Home() {
         <SectionHead title="Trending this week" sub="Most purchased across all markets in the last 7 days" action={<Link to="/shop" className="link-arrow">Browse all <ArrowRight size={15} /></Link>} />
         <div className="grid grid-5">
           {trending.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </section>
-
-      <section className="market-band">
-        <div className="container">
-          <SectionHead
-            title="Walk into a market"
-            sub="Every product on MarketDeal comes from a real shop in a real market — market, street, plaza, vendor."
-            action={<Link to="/shop/markets" className="link-arrow">See all markets <ArrowRight size={15} /></Link>}
-          />
-          <div className="market-chips">
-            {markets.map((m) => (
-              <Link key={m.id} to={`/shop/market/${m.id}`} className="market-chip" style={{ '--h': m.hue }}>
-                <span className="mc-emoji">{m.emoji}</span>
-                <div>
-                  <b>{m.name}</b>
-                  <small>{m.city}, {m.state}</small>
-                  <em>{m.focus}</em>
-                </div>
-              </Link>
-            ))}
-          </div>
         </div>
       </section>
 

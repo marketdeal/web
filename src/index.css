@@ -786,6 +786,8 @@ a.loc-badge:hover { background: #dbe7f5; }
 .chat-signin h3 { margin: 0; }
 .chat-signin p { margin: 0; max-width: 360px; }
 .chat-signin-actions { justify-content: center; margin-top: 8px; }
+.community-buyer-note { display: flex; gap: 10px; align-items: flex-start; }
+.community-buyer-note svg { flex: none; margin-top: 2px; color: var(--orange-700); }
 .bubble.from-system .bubble-head span { color: var(--muted); }
 .bubble strong { font-size: 1.1rem; }
 .bubble.waiting { flex-direction: row; align-items: center; gap: 10px; color: var(--muted); }
@@ -1078,3 +1080,9 @@ button, a, .tab { touch-action: manipulation; }
   .filters.open .filters-done { display: block; width: 100%; position: sticky; bottom: 0; margin-top: 12px; }
   .filters-backdrop { display: block; position: fixed; inset: 0; z-index: 305; background: rgba(14, 35, 64, .5); animation: fadeIn .18s ease; }
 }
+
+/* Customer (buyer-facing) community */
+.community-head .link-arrow { display: block; margin-top: 4px; }
+.community-avatar { width: 34px; height: 34px; flex: none; background: var(--navy); }
+.community-badge { font-size: .68rem; padding: 1px 7px; vertical-align: middle; }
+.community-signin { display: flex; align-items: center; gap: 6px; margin-top: 10px; }

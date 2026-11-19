@@ -20,6 +20,7 @@ import { BecomeMerchant, Login, Register } from './pages/Auth';
 import MarketsIndex from './pages/MarketsIndex';
 import { MarketPage as ConsumerMarketPage, PlazaPage as ConsumerPlazaPage, StreetPage as ConsumerStreetPage } from './pages/shop/Directory';
 import VendorPage from './pages/shop/Vendor';
+import CustomerCommunity from './pages/shop/Community';
 import B2BHome from './pages/b2b/Home';
 import { MarketPage, PlazaPage, StreetPage } from './pages/b2b/Directory';
 import MarketCommunity from './pages/b2b/Community';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="shop" element={<Shop />} />
           <Route path="shop/markets" element={<MarketsIndex />} />
           <Route path="shop/market/:id" element={<ConsumerMarketPage />} />
+          <Route path="shop/market/:id/community" element={<CustomerCommunity />} />
           <Route path="shop/street/:id" element={<ConsumerStreetPage />} />
           <Route path="shop/plaza/:id" element={<ConsumerPlazaPage />} />
           <Route path="shop/vendor/:id" element={<VendorPage />} />

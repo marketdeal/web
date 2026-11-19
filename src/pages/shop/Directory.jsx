@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Building2, Clock, Landmark, Megaphone, Users } from 'lucide-react';
+import { Building2, Clock, Landmark, Megaphone, MessageCircle, Users } from 'lucide-react';
 import { ProductCard, ShopCard } from '../../components/cards';
 import { Breadcrumb, EmptyState, SectionHead, Visual } from '../../components/ui';
 import {
@@ -69,6 +69,7 @@ export function MarketPage() {
                 <span><Clock size={15} /> {market.hours}</span>
                 <span><Users size={15} /> {market.association}</span>
               </div>
+              <Link to={`/shop/market/${id}/community`} className="btn btn-dark mt"><MessageCircle size={16} /> {market.short} Community</Link>
             </div>
             <div className="b2b-stats light">
               <div><b>{streets.length}</b><span>Streets</span></div>

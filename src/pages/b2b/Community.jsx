@@ -48,7 +48,7 @@ const NotFound = () => (
 
 /** A file-input button for a photo or a short video. On a phone the picker also offers the camera,
  *  so a merchant can record a quick clip and post it. Processed entirely in the browser (lib/media.js). */
-function AttachButton({ compact, onPick, onError, current }) {
+export function AttachButton({ compact, onPick, onError, current }) {
   const [busy, setBusy] = useState(false);
   const pick = async (e) => {
     const file = e.target.files?.[0];
@@ -76,14 +76,14 @@ function AttachButton({ compact, onPick, onError, current }) {
 }
 
 /** The picked attachment shown above the composer before posting. */
-function AttachPreview({ media }) {
+export function AttachPreview({ media }) {
   return media.kind === 'video'
     ? <video src={media.url} className="attach-video" muted playsInline controls preload="metadata" />
     : <img src={media.src} alt="Attachment preview" />;
 }
 
 /** A posted attachment: a tappable photo (opens the lightbox) or an inline video player. */
-function Attachment({ image, video, className, onOpen }) {
+export function Attachment({ image, video, className, onOpen }) {
   if (video) return <VideoPlayer id={video} className={className} />;
   if (!image) return null;
   return (
@@ -209,6 +209,7 @@ export default function MarketCommunity() {
         <div>
           <h1>{market.name} Community</h1>
           <span className="muted small"><Users size={13} /> {plural(members.length, 'verified merchant')} · members-only, restricted to this market</span>
+          <Link to={`/shop/market/${id}/community`} className="link-arrow small">Post to your customers in the {market.short} customer community →</Link>
         </div>
       </div>
 

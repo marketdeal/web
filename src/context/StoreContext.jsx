@@ -6,6 +6,7 @@ import { b2cProducts } from '../data/b2c';
 import { b2bProducts } from '../data/b2b';
 import { locate, marketById, shopById, shopsOfMarket } from '../data/directory';
 import { seedMarketPosts, REPLY_POOL } from '../data/marketCommunity';
+import { seedShopPosts, SHOP_REPLY_POOL } from '../data/shopCommunity';
 import { cartKey, groupCart, priceGroups } from '../lib/cart';
 import { AUTO_RELEASE_MS, EXTEND_MS, couriers } from '../lib/escrow';
 import { uid } from '../lib/format';
@@ -71,6 +72,8 @@ export function StoreProvider({ children }) {
     },
   });
   const [marketPosts, setMarketPosts] = usePersistentState('marketPosts', seedMarketPosts);
+  // Customer (buyer-facing) community — kept apart from the dealer-to-dealer `marketPosts`.
+  const [shopPosts, setShopPosts] = usePersistentState('shopPosts', seedShopPosts);
 
   // ---- cart -----------------------------------------------------------------
   const addToCart = useCallback(
@@ -250,6 +253,66 @@ export function StoreProvider({ children }) {
     [user, setMarketPosts],
   );
 
+  // ---- customer community (buyer-facing) ------------------------------------------
+  // Merchants post to their own market's board; anyone signed in can comment or reply. A merchant
+  // commenting in their own market speaks as the shop, everyone else as a buyer.
+  const shopAuthor = useCallback(
+    (marketId) => {
+      const shopId = user?.business?.shopId;
+      if (shopId && shopById[shopId] && locate(shopId).market.id === marketId) return { shopId };
+      return { buyerId: user.id, buyerName: user.name };
+    },
+    [user],
+  );
+  const createShopPost = useCallback(
+    (marketId, text, media, productId = null) => {
+      const post = {
+        id: uid('sp-'), marketId, shopId: user.business.shopId, text: text.trim(), ...mediaFields(media),
+        productId: productId || null, createdAt: Date.now(), comments: [],
+      };
+      setShopPosts((prev) => [post, ...prev]);
+      return post;
+    },
+    [user, setShopPosts],
+  );
+  const addShopComment = useCallback(
+    (postId, text, media) => {
+      const now = Date.now();
+      setShopPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          const author = shopAuthor(p.marketId);
+          // A buyer's question gets a (simulated) answer from the shop that posted.
+          const pending = author.buyerId ? { at: now + COMMUNITY_REPLY_DELAY_MS } : null;
+          const comment = { id: uid('sc-'), ...author, text: text.trim(), ...mediaFields(media), createdAt: now, replies: [], pending };
+          return { ...p, comments: [...p.comments, comment] };
+        }),
+      );
+    },
+    [shopAuthor, setShopPosts],
+  );
+  const addShopReply = useCallback(
+    (postId, commentId, text, media) => {
+      const now = Date.now();
+      setShopPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          const author = shopAuthor(p.marketId);
+          return {
+            ...p,
+            comments: p.comments.map((c) => {
+              if (c.id !== commentId) return c;
+              const reply = { id: uid('sr-'), ...author, text: text.trim(), ...mediaFields(media), createdAt: now };
+              const pending = author.buyerId ? c.pending || { at: now + COMMUNITY_REPLY_DELAY_MS } : c.pending;
+              return { ...c, replies: [...(c.replies || []), reply], pending };
+            }),
+          };
+        }),
+      );
+    },
+    [shopAuthor, setShopPosts],
+  );
+
   // ---- orders -----------------------------------------------------------------
   const placeRetailOrders = useCallback(
     ({ address, payment, delivery }) => {
@@ -407,6 +470,8 @@ export function StoreProvider({ children }) {
   const ordersRef = useRef(orders);
   const myProductsRef = useRef(myProducts);
   const marketPostsRef = useRef(marketPosts);
+  const shopPostsRef = useRef(shopPosts);
+  shopPostsRef.current = shopPosts;
   dealChatsRef.current = dealChats;
   ordersRef.current = orders;
   myProductsRef.current = myProducts;
@@ -492,11 +557,25 @@ export function StoreProvider({ children }) {
           .slice(0, 1)
           .forEach((r) => toast(`New reply in the ${marketById[r.marketId].short} community`, { kind: 'info', duration: 5000 }));
       }
+      // Customer community: the posting shop answers a buyer's comment.
+      const shopAnswerDue = shopPostsRef.current.some((p) => (p.comments || []).some((c) => c.pending && c.pending.at <= now));
+      if (shopAnswerDue) {
+        setShopPosts((prev) =>
+          prev.map((p) => ({
+            ...p,
+            comments: (p.comments || []).map((c) => {
+              if (!c.pending || c.pending.at > now) return c;
+              const text = SHOP_REPLY_POOL[Math.floor(Math.random() * SHOP_REPLY_POOL.length)];
+              return { ...c, pending: null, replies: [...(c.replies || []), { id: uid('sr-'), shopId: p.shopId, text, createdAt: now }] };
+            }),
+          })),
+        );
+      }
     };
     const t = setInterval(tick, 1000);
     tick();
     return () => clearInterval(t);
-  }, [setDealChats, setOrders, setMyProducts, setMarketPosts, toast]);
+  }, [setDealChats, setOrders, setMyProducts, setMarketPosts, setShopPosts, toast]);
 
   // Contact details unlock once the buyer has an order (of any kind) with that shop — mirrors the
   // "chat is always open, phone numbers unlock after purchase" rule.
@@ -515,6 +594,7 @@ export function StoreProvider({ children }) {
       b2cCatalog, b2bCatalog, findProduct, productsOfShop, previewProduct,
       myProducts, addProduct, updateProduct, approveProduct, rejectProduct, removeProduct,
       marketPosts, createPost, addComment, addReply,
+      shopPosts, createShopPost, addShopComment, addShopReply,
     }),
     [
       cart, cartCount, addToCart, updateQty, removeFromCart, buyWithEscrow, wishlist, toggleWish,
@@ -523,6 +603,7 @@ export function StoreProvider({ children }) {
       b2cCatalog, b2bCatalog, findProduct, productsOfShop, previewProduct,
       myProducts, addProduct, updateProduct, approveProduct, rejectProduct, removeProduct,
       marketPosts, createPost, addComment, addReply, marketOverrides,
+      shopPosts, createShopPost, addShopComment, addShopReply,
     ],
   );
 
